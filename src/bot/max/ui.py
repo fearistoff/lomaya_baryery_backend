@@ -1,3 +1,4 @@
+from aiomax import BotCommand
 from aiomax.buttons import CallbackButton
 
 LOMBARIERS_BALANCE = 'Баланс ломбарьеров'
@@ -15,6 +16,15 @@ DAILY_TASK_KEYBOARD = [
         CallbackButton(SKIP_A_TASK, SKIP_TASK_CALLBACK),
         CallbackButton(LOMBARIERS_BALANCE, BALANCE_CALLBACK),
     ]
+]
+
+# Меню команд бота: единственный элемент интерфейса Max, доступный вне сообщений,
+# поэтому баланс и пропуск задания дублируются здесь командами
+BOT_COMMANDS = [
+    BotCommand('start', 'Регистрация в проекте'),
+    BotCommand('balance', LOMBARIERS_BALANCE),
+    BotCommand('skip', SKIP_A_TASK),
+    BotCommand('cancel', 'Прервать заполнение анкеты'),
 ]
 
 CONFIRM_SKIP_TASK_KEYBOARD = [

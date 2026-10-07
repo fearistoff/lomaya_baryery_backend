@@ -129,6 +129,13 @@ class MaxBot(aiomax.Bot, MessageSender):
         """Подписаться на обновления через webhook либо запустить polling."""
         self.__webhook_mode = settings.MAX_BOT_WEBHOOK_MODE if webhook_mode is None else webhook_mode
         await self.get_me()
+        try:
+            # команды задаются отдельным методом API: patch_me из aiomax шлёт их в PATCH /me,
+            # который API Max больше не принимает
+            await self.patch("me/commands", json={"commands": [command.as_dict() for command in ui.BOT_COMMANDS]})
+        except (AiomaxException, aiohttp.ClientError) as e:
+            # без меню команд бот работает: кнопки под заданием остаются
+            logging.warning(f"Не удалось обновить меню команд Max-бота: {e!r}")
         # режимы webhook и polling взаимоисключающие, поэтому старые подписки снимаются в обоих
         await self.__remove_subscriptions()
         if self.__webhook_mode:

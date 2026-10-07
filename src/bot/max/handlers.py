@@ -60,6 +60,11 @@ SWITCHED_TO_MAX_TEXT = (
     "а в Telegram уведомления приходить перестанут."
 )
 SWITCHED_WITHOUT_UPDATE_TEXT = "Данные анкеты не изменены.\n{reason}"
+NOT_REGISTERED_TEXT = "Ты еще не зарегистрирован в проекте. Отправь /start, чтобы зарегистрироваться."
+SKIP_TASK_CONFIRM_TEXT = (
+    "Тобой была нажата кнопка \"пропустить задание\". "
+    "Если ты пропустишь задание, то не сможешь отправить отчёт сегодня."
+)
 
 
 class RegistrationState(str, enum.Enum):
@@ -339,7 +344,7 @@ async def photo_handler(message: aiomax.Message) -> None:
     try:
         user = await user_service.get_user_by_max_id(message.sender.user_id)
         if user is None:
-            await message.send("Ты еще не зарегистрирован в проекте. Отправь /start, чтобы зарегистрироваться.")
+            await message.send(NOT_REGISTERED_TEXT)
             return
         report = await report_service.get_current_report(user.id)
         shift_dir = await shift_service.get_shift_dir(report.shift_id)
@@ -361,24 +366,45 @@ async def incorrect_report_type_handler(message: aiomax.Message) -> None:
     await message.send("Отчёт по заданию должен быть отправлен в виде фотографии.")
 
 
-@router.on_button_callback(ui.BALANCE_CALLBACK)
-async def balance_callback(callback: aiomax.Callback) -> None:
-    """Нажатие кнопки баланса ломбарьеров."""
-    amount = await get_balance(callback.user.user_id)
-    await callback.send(
+def _balance_text(amount: int) -> str:
+    """Текст ответа с балансом ломбарьеров."""
+    return (
         f"Общее количество {amount} {get_lombaryers_for_quantity(amount)}! "
         f"Выполняй задания каждый день и не забывай отправлять фотоотчет! Ты молодец!"
     )
 
 
+@router.on_button_callback(ui.BALANCE_CALLBACK)
+async def balance_callback(callback: aiomax.Callback) -> None:
+    """Нажатие кнопки баланса ломбарьеров."""
+    await callback.send(_balance_text(await get_balance(callback.user.user_id)))
+
+
+@router.on_command("balance")
+async def balance_command(ctx: aiomax.CommandContext) -> None:
+    """Команда /balance - баланс ломбарьеров."""
+    await ctx.send(_balance_text(await get_balance(ctx.sender.user_id)))
+
+
 @router.on_button_callback(ui.SKIP_TASK_CALLBACK)
 async def skip_task_callback(callback: aiomax.Callback) -> None:
     """Нажатие кнопки пропуска задания: запрос подтверждения."""
-    await callback.send(
-        "Тобой была нажата кнопка \"пропустить задание\". "
-        "Если ты пропустишь задание, то не сможешь отправить отчёт сегодня.",
-        keyboard=ui.CONFIRM_SKIP_TASK_KEYBOARD,
-    )
+    await callback.send(SKIP_TASK_CONFIRM_TEXT, keyboard=ui.CONFIRM_SKIP_TASK_KEYBOARD)
+
+
+@router.on_command("skip")
+async def skip_command(ctx: aiomax.CommandContext) -> None:
+    """Команда /skip - пропуск задания: запрос подтверждения, как у кнопки.
+
+    Команда доступна в меню всем, поэтому, в отличие от кнопки под заданием,
+    сначала проверяется регистрация: без неё skip_report не найдёт пользователя.
+    """
+    session = get_session()
+    user_service = await get_user_service_callback(session)
+    if await user_service.get_user_by_max_id(ctx.sender.user_id) is None:
+        await ctx.send(NOT_REGISTERED_TEXT)
+        return
+    await ctx.send(SKIP_TASK_CONFIRM_TEXT, keyboard=ui.CONFIRM_SKIP_TASK_KEYBOARD)
 
 
 @router.on_button_callback(ui.CONFIRM_SKIP_TASK_CALLBACK)
