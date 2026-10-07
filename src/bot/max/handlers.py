@@ -57,9 +57,9 @@ TEXT_ONLY_ANSWER_TEXT = "Пожалуйста, отправь ответ тек�
 CANCEL_REGISTRATION_TEXT = "Заполнение данных прервано. Отправь /start, чтобы начать заново."
 SWITCHED_TO_MAX_TEXT = (
     "Мы нашли твою анкету по этому номеру телефона. Продолжим общение здесь, в Max, "
-    "а в Telegram уведомления приходить перестанут. Остальные данные заполнять не нужно - "
-    "они уже есть. Процесс обработки заявок занимает некоторое время, тебе придет уведомление."
+    "а в Telegram уведомления приходить перестанут."
 )
+SWITCHED_WITHOUT_UPDATE_TEXT = "Данные анкеты не изменены.\n{reason}"
 
 
 class RegistrationState(str, enum.Enum):
@@ -211,9 +211,7 @@ async def registration_dialog(message: aiomax.Message, cursor: aiomax.fsm.FSMCur
         return
     data["fields"][field_name] = text
     cursor.change_data(data)
-    if state is RegistrationState.PHONE_NUMBER and await _try_switch_to_max(message, cursor, text):
-        # участник уже зарегистрирован под этим номером в telegram - перенесли на Max,
-        # остальные данные заполнять не нужно
+    if state is RegistrationState.PHONE_NUMBER and await _try_switch_to_max(message, cursor, data, text):
         return
     next_state = NEXT_REGISTRATION_STATE[state]
     if next_state is not None:
@@ -223,10 +221,16 @@ async def registration_dialog(message: aiomax.Message, cursor: aiomax.fsm.FSMCur
     await _finish_registration(message, cursor, data)
 
 
-async def _try_switch_to_max(message: aiomax.Message, cursor: aiomax.fsm.FSMCursor, phone_number: str) -> bool:
+async def _try_switch_to_max(
+    message: aiomax.Message, cursor: aiomax.fsm.FSMCursor, data: dict, phone_number: str
+) -> bool:
     """Перевести на Max участника, уже зарегистрированного в telegram под этим номером.
 
-    Возвращает True, если перенос выполнен и диалог регистрации завершён.
+    Канал связи переносится всегда, а заполненная анкета применяется дальше обычным
+    путём регистрации как актуализация данных. Если данные менять нельзя (заявка на
+    рассмотрении или одобрена) - диалог завершается здесь, анкета остаётся прежней.
+
+    Возвращает True, если диалог регистрации завершён.
     Номер приводится к виду, в котором его сохраняет UserCreateRequest, иначе поиск
     не найдёт участника, введшего номер в другом формате.
     """
@@ -235,15 +239,17 @@ async def _try_switch_to_max(message: aiomax.Message, cursor: aiomax.fsm.FSMCurs
     user = await user_service.get_user_by_phone_number(normalize_phone_number(phone_number))
     if user is None or user.is_from_max:
         return False
-    try:
-        await user_service.switch_user_to_max(user, message.sender.user_id)
-    except exceptions.ApplicationError as e:
-        await message.send(e.detail)
-        cursor.clear()
-        return True
-    cursor.clear()
+    await user_service.switch_user_to_max(user, message.sender.user_id)
     await message.send(SWITCHED_TO_MAX_TEXT)
-    return True
+    try:
+        await user_service.check_before_change_user_data(user.id)
+    except exceptions.ApplicationError as e:
+        cursor.clear()
+        await message.send(SWITCHED_WITHOUT_UPDATE_TEXT.format(reason=e.detail))
+        return True
+    data["is_update"] = True
+    cursor.change_data(data)
+    return False
 
 
 async def _finish_registration(message: aiomax.Message, cursor: aiomax.fsm.FSMCursor, data: dict) -> None:

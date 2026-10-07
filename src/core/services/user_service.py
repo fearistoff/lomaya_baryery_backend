@@ -55,15 +55,14 @@ class UserService:
         await self.__request_participation(user)
 
     async def switch_user_to_max(self, user: User, max_user_id: int) -> None:
-        """Перевести пользователя на мессенджер Max и подать заявку на текущую смену.
+        """Перевести пользователя на мессенджер Max.
 
         Вызывается, когда участник, ранее зарегистрированный в telegram, начинает
-        регистрацию в Max под тем же номером телефона: анкета и история сохраняются,
-        меняется только канал связи.
+        регистрацию в Max под тем же номером телефона. Меняется только канал связи:
+        анкету и заявку на смену обновляет последующий register_user.
         """
         user.switch_to_max(max_user_id)
         await self.__user_repository.update(user.id, user)
-        await self.__request_participation(user)
 
     async def __request_participation(self, user: User) -> None:
         """Создать или обновить заявку пользователя на участие в открытой смене."""
