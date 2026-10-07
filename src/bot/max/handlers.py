@@ -12,7 +12,11 @@ import aiomax
 from pydantic import ValidationError
 from pydantic.error_wrappers import ValidationError as PydanticValidationError
 
-from src.api.request_models.user import DATE_FORMAT, UserCreateRequest
+from src.api.request_models.user import (
+    DATE_FORMAT,
+    UserCreateRequest,
+    normalize_phone_number,
+)
 from src.bot.max import ui
 from src.bot.telegram.api_services import get_user_service_callback
 from src.core import exceptions
@@ -223,10 +227,12 @@ async def _try_switch_to_max(message: aiomax.Message, cursor: aiomax.fsm.FSMCurs
     """Перевести на Max участника, уже зарегистрированного в telegram под этим номером.
 
     Возвращает True, если перенос выполнен и диалог регистрации завершён.
+    Номер приводится к виду, в котором его сохраняет UserCreateRequest, иначе поиск
+    не найдёт участника, введшего номер в другом формате.
     """
     session = get_session()
     user_service = await get_user_service_callback(session)
-    user = await user_service.get_user_by_phone_number(phone_number)
+    user = await user_service.get_user_by_phone_number(normalize_phone_number(phone_number))
     if user is None or user.is_from_max:
         return False
     try:

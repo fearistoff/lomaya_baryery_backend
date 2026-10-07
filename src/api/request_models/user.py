@@ -15,6 +15,18 @@ INVALID_TEXT_ERROR = "В поле {} может быть использован�
 DATE_FORMAT = "%d.%m.%Y"
 
 
+def normalize_phone_number(value: str) -> str:
+    """Привести номер телефона к виду, в котором он хранится в БД: +7 999 123-45-67."""
+    invalid_phone_number = 'Некорректный номер телефона'
+    try:
+        parsed_number = phonenumbers.parse(value, "RU")
+    except NumberParseException:
+        raise ValueError(invalid_phone_number)
+    if not phonenumbers.is_valid_number(parsed_number):
+        raise ValueError(invalid_phone_number)
+    return phonenumbers.format_number(parsed_number, phonenumbers.PhoneNumberFormat.INTERNATIONAL)
+
+
 class UserCreateRequest(BaseModel):
     telegram_id: Optional[StrictInt]
     max_user_id: Optional[StrictInt]
@@ -35,14 +47,7 @@ class UserCreateRequest(BaseModel):
 
     @validator("phone_number", pre=True)
     def validate_phone_number(cls, value: str):
-        invalid_phone_number = 'Некорректный номер телефона'
-        try:
-            parsed_number = phonenumbers.parse(value, "RU")
-        except NumberParseException:
-            raise ValueError(invalid_phone_number)
-        if not phonenumbers.is_valid_number(parsed_number):
-            raise ValueError(invalid_phone_number)
-        return phonenumbers.format_number(parsed_number, phonenumbers.PhoneNumberFormat.INTERNATIONAL)
+        return normalize_phone_number(value)
 
     @validator("date_of_birth", pre=True)
     def validate_date_of_birth(cls, value: str):
