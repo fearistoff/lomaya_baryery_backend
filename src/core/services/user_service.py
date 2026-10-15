@@ -102,6 +102,10 @@ class UserService:
         if user_scheme.compare_with_db_model(user):
             return user
         validate_date_of_birth(user_scheme.date_of_birth)
+        if user.phone_number != user_scheme.phone_number:
+            phone_owner = await self.__user_repository.get_by_phone_number(user_scheme.phone_number)
+            if phone_owner and phone_owner.id != user.id:
+                raise exceptions.NotValidValueError('Пользователь с таким номером телефона уже существует.')
         user.status = User.Status.PENDING
         user = user_scheme.update_db_model(user)
         return await self.__user_repository.update(user.id, user)
