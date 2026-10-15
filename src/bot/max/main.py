@@ -119,6 +119,14 @@ class MaxBot(aiomax.Bot, MessageSender):
             await bot_stopped_handler(update)
             return
         message = update.get("message")
+        if update.get("update_type") == "message_created" and not message:
+            # В неполном событии нет отправителя и чата, поэтому ответить пользователю невозможно.
+            logging.warning(
+                "Пропущено событие Max message_created без message (timestamp=%s): "
+                "API не передал данные сообщения и отправителя.",
+                update.get("timestamp"),
+            )
+            return
         if message and message.get("body") and message["body"].get("text") is None:
             # у сообщений без текста (например, только с фото) body.text = null,
             # что роняет разбор команд в aiomax
