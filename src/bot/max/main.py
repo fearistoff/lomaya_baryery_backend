@@ -113,6 +113,21 @@ class MaxBot(aiomax.Bot, MessageSender):
                 timeout=SEND_TIMEOUT,
             )
 
+    async def answer_callback(self, callback_id: str) -> None:
+        """Подтвердить нажатие кнопки, сохранив содержимое сообщения."""
+        try:
+            response = await self.post(
+                "answers",
+                params={"callback_id": callback_id},
+                json={},
+                timeout=aiohttp.ClientTimeout(total=SEND_TIMEOUT),
+            )
+            result = await response.json()
+            if not result.get("success", False):
+                logging.warning("Не удалось подтвердить нажатие кнопки Max: %s", result.get("message"))
+        except (AiomaxException, aiohttp.ClientError, asyncio.TimeoutError) as e:
+            logging.warning("Не удалось подтвердить нажатие кнопки Max: %r", e)
+
     async def handle_update(self, update: dict) -> None:
         if update.get("update_type") == "bot_stopped":
             # aiomax молча игнорирует bot_stopped, поэтому обрабатываем его самостоятельно

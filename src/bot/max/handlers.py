@@ -380,6 +380,7 @@ def _balance_text(amount: int) -> str:
 @router.on_button_callback(ui.BALANCE_CALLBACK)
 async def balance_callback(callback: aiomax.Callback) -> None:
     """Нажатие кнопки баланса ломбарьеров."""
+    await callback.bot.answer_callback(callback.callback_id)
     await callback.send(_balance_text(await get_balance(callback.user.user_id)))
 
 
@@ -392,6 +393,7 @@ async def balance_command(ctx: aiomax.CommandContext) -> None:
 @router.on_button_callback(ui.SKIP_TASK_CALLBACK)
 async def skip_task_callback(callback: aiomax.Callback) -> None:
     """Нажатие кнопки пропуска задания: запрос подтверждения."""
+    await callback.bot.answer_callback(callback.callback_id)
     await callback.send(SKIP_TASK_CONFIRM_TEXT, keyboard=ui.CONFIRM_SKIP_TASK_KEYBOARD)
 
 
@@ -413,6 +415,7 @@ async def skip_command(ctx: aiomax.CommandContext) -> None:
 @router.on_button_callback(ui.CONFIRM_SKIP_TASK_CALLBACK)
 async def confirm_skip_task_callback(callback: aiomax.Callback) -> None:
     """Подтверждение пропуска задания."""
+    await callback.bot.answer_callback(callback.callback_id)
     try:
         await skip_report(callback.user.user_id)
     except exceptions.ApplicationError as e:
@@ -425,6 +428,7 @@ async def confirm_skip_task_callback(callback: aiomax.Callback) -> None:
 @router.on_button_callback(ui.CANCEL_SKIP_TASK_CALLBACK)
 async def cancel_skip_task_callback(callback: aiomax.Callback) -> None:
     """Отмена пропуска задания."""
+    await callback.bot.answer_callback(callback.callback_id)
     await callback.bot.edit_message(callback.message.id, text="Действие отменено")
 
 
