@@ -161,16 +161,13 @@ class MaxBot(aiomax.Bot, MessageSender):
         except (AiomaxException, aiohttp.ClientError) as e:
             # без меню команд бот работает: кнопки под заданием остаются
             logging.warning(f"Не удалось обновить меню команд Max-бота: {e!r}")
-        # режимы webhook и polling взаимоисключающие, поэтому старые подписки снимаются в обоих
-        await self.__remove_subscriptions()
-        if self.__webhook_mode:
-            await self.post("subscriptions", json={"url": settings.max_webhook_url})
-        else:
+        await self.__sync_subscriptions(settings.max_webhook_url if self.__webhook_mode else None)
+        if not self.__webhook_mode:
             self.__polling_task = asyncio.create_task(self.start_polling(session=self.session))
             self.__polling_task.add_done_callback(self.__on_polling_finished)
 
     async def stop(self) -> None:
-        """Остановить получение обновлений и освободить ресурсы."""
+        """Остановить получение обновлений и закрыть сессию, сохранив webhook-подписку."""
         self.__stopping = True
         if self.__polling_task is not None:
             self.polling = False
@@ -179,9 +176,6 @@ class MaxBot(aiomax.Bot, MessageSender):
             with suppress(asyncio.CancelledError, Exception):
                 await self.__polling_task
             self.__polling_task = None
-        elif self.__webhook_mode:
-            with suppress(Exception):
-                await self.delete("subscriptions", params={"url": settings.max_webhook_url})
         # start_polling закрывает сессию сам, но только если успел её принять:
         # отмененная сразу после запуска задача оставила бы сессию открытой
         await self.close_session()
@@ -250,9 +244,13 @@ class MaxBot(aiomax.Bot, MessageSender):
             connector = aiohttp.TCPConnector(ssl=ssl_context)
         return aiohttp.ClientSession(headers={"Authorization": self.access_token}, connector=connector)
 
-    async def __remove_subscriptions(self) -> None:
-        """Снять все webhook-подписки бота."""
+    async def __sync_subscriptions(self, webhook_url: Optional[str]) -> None:
+        """Сохранить подписку на webhook_url, либо снять все подписки для polling."""
         response = await self.get("subscriptions")
         subscriptions = (await response.json()).get("subscriptions", [])
-        for subscription in subscriptions:
-            await self.delete("subscriptions", params={"url": subscription["url"]})
+        urls = [subscription["url"] for subscription in subscriptions]
+        for url in urls:
+            if url != webhook_url:
+                await self.delete("subscriptions", params={"url": url})
+        if webhook_url is not None and webhook_url not in urls:
+            await self.post("subscriptions", json={"url": webhook_url})
