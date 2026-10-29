@@ -43,6 +43,15 @@ class NotValidValueError(ApplicationError):
         self.detail = detail
 
 
+class UserAlreadyInMaxError(ApplicationError):
+    """Анкета с указанным номером телефона уже привязана к Max."""
+
+    detail = (
+        "Анкета с этим номером телефона уже привязана к Max. "
+        "Продолжайте участие в боте Max. Повторная регистрация в Telegram не требуется."
+    )
+
+
 class ObjectNotFoundError(NotFoundError):
     def __init__(self, model: DatabaseModel, object_id: UUID):
         self.detail = "Объект '{}' с id '{}' не найден".format(model.__name__, object_id)

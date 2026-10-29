@@ -29,6 +29,10 @@ async def validate_user_not_exists(user: UserCreateRequest, user_repository: Use
     """Проверка, что в БД нет пользователя с указанным telegram_id, max_user_id или phone_number."""
     user_exists = await user_repository.check_user_existence(user.telegram_id, user.phone_number, user.max_user_id)
     if user_exists:
+        if user.telegram_id is not None:
+            phone_owner = await user_repository.get_by_phone_number(user.phone_number)
+            if phone_owner and phone_owner.is_from_max:
+                raise exceptions.UserAlreadyInMaxError
         raise exceptions.NotValidValueError('Пользователь с таким номером телефона уже существует.')
 
 

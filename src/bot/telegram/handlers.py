@@ -136,6 +136,10 @@ async def web_app_data(update: Update, context: CallbackContext) -> None:
     reply_markup, validation_error = None, False
     try:
         await registration_service.register_user(user_scheme)
+    except exceptions.UserAlreadyInMaxError as e:
+        text = e.detail
+        reply_markup = ReplyKeyboardRemove()
+        context.user_data.pop("user", None)
     except exceptions.NotValidValueError as e:
         text = e.detail
         validation_error = True
