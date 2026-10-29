@@ -136,6 +136,8 @@ class MaxBot(aiomax.Bot, MessageSender):
     async def start(self, webhook_mode: Optional[bool] = None) -> None:
         """Подписаться на обновления через webhook либо запустить polling."""
         self.__webhook_mode = settings.MAX_BOT_WEBHOOK_MODE if webhook_mode is None else webhook_mode
+        if self.__webhook_mode and not settings.MAX_WEBHOOK_SECRET.strip():
+            raise ValueError("Для запуска Max-бота в режиме webhook необходимо задать MAX_WEBHOOK_SECRET.")
         await self.get_me()
         try:
             # команды задаются отдельным методом API: patch_me из aiomax шлёт их в PATCH /me,
