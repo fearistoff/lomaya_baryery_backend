@@ -29,6 +29,8 @@ def upgrade():
 
 def downgrade():
     op.drop_constraint('users_messenger_id_check', 'users', type_='check')
+    # Откат требует отсутствия NULL в telegram_id: иначе PostgreSQL отклонит возврат NOT NULL.
+    # Такие значения есть у пользователей из Max, в том числе перенесённых из telegram.
     op.alter_column('users', 'telegram_id', existing_type=sa.BigInteger(), nullable=False)
     op.drop_constraint('users_max_user_id_key', 'users', type_='unique')
     op.drop_column('users', 'max_blocked')
